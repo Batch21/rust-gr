@@ -69,21 +69,39 @@ impl ProductionStore {
 
 struct Routing {
     days: f64,
-    exchange_coefficient: f64,
+    store: RoutingStore,
     uh1_ordinates: Vec<f64>,
     uh2_ordinates: Vec<f64>,
     uh1: Vec<f64>,
-    uh2: Vec<f64>
+    uh2: Vec<f64>,
 }
 
 impl Routing {
 
-    fn new(days: f64, exchange_coefficient: f64) -> Routing {
+    fn step(&mut self, percolation: f64) -> f64 {
+
+        // convolution of first unit hydrograph
+        for i in 0..self.uh1.len() - 1 {
+            self.uh1[i] = self.uh1[i + 1] + percolation * self.uh1_ordinates[i];
+        }
+        self.uh1[self.uh1_ordinates.len() - 1] = percolation * self.uh1_ordinates.last().unwrap();
+        
+        for i in 0..self.uh2.len() - 1 {
+            self.uh2[i] = self.uh2[i + 1] + percolation * self.uh2_ordinates[i];
+        }
+        self.uh2[self.uh2_ordinates.len() - 1] = percolation * self.uh2_ordinates.last().unwrap();
+
+        let (qr, exchange) = self.store.step(self.uh1[0] * 0.9);
+        
+        let mut qd = self.uh2[0] * 0.1 + exchange;
+        qd = qd.max(0.0);
+
+        qr + qd
+    }
+
+    fn new(days: f64, exchange_coefficient: f64, store_capacity: f64, store_content: f64) -> Routing {
         let num_ords1 = days.ceil() as i32;
         let num_ords2 = (days * 2.0).ceil() as i32;
-        
-        println!("ords1: {}", num_ords1);
-        println!("ords2 {}", num_ords2);
 
         let mut uh1_ords = Vec::new();
         for i in 0..num_ords1 {
@@ -96,14 +114,20 @@ impl Routing {
             let t = i as f64;
             uh2_ords.push(s_curve2(t + 1.0, days) - s_curve2(t, days));
         }
+        
+        let store = RoutingStore {
+            capacity: store_capacity,
+            water_content: store_content,
+            gw_exchange_coefficient: exchange_coefficient,
+        };
 
         Routing {
             days: days,
-            exchange_coefficient: exchange_coefficient,
+            store: store,
             uh1_ordinates: uh1_ords,
             uh2_ordinates: uh2_ords,
-            uh1: Vec::new(),
-            uh2: Vec::new()
+            uh1: vec![0.0; num_ords1 as usize],
+            uh2: vec![0.0; num_ords2 as usize]
         }
     }
 
@@ -135,7 +159,20 @@ fn s_curve2(t: f64, days: f64) -> f64 {
 
 struct RoutingStore {
     capacity: f64,
-    water_content: f64
+    water_content: f64,
+    gw_exchange_coefficient: f64
+}
+
+impl RoutingStore {
+    
+    fn step(&mut self, uh1_output: f64) -> (f64, f64) {
+        let exchange = self.gw_exchange_coefficient * (self.water_content / self.capacity).powf(3.5);
+        self.water_content = self.water_content + uh1_output + exchange;
+        self.water_content = self.water_content.max(0.0);
+        let qr = self.water_content * (1.0 -(1.0 + (self.water_content / self.capacity).powi(4)).powf(-0.25));
+        self.water_content -= qr;
+        (qr, exchange)
+    }
 }
 
 #[cfg(test)]
@@ -193,7 +230,7 @@ mod tests {
     #[test]
     fn routing() {
 
-        let routing = Routing::new(1.5, 200.0);
+        let mut routing = Routing::new(1.5, 2.5, 70.0, 49.0);
 
         let ord1_expected = vec![0.3629, 0.6371];
         for (i, ord) in routing.uh1_ordinates.iter().enumerate(){
@@ -203,9 +240,27 @@ mod tests {
         let ord2_expected = vec![0.1814, 0.6371, 0.1814];
         for (i, ord) in routing.uh2_ordinates.iter().enumerate(){
             assert!(abs_diff_eq!(ord.clone(), ord2_expected[i], epsilon=0.001));
-        }     
+        }  
+        
+        let q = routing.step(5.4335);
+
+        assert!(abs_diff_eq!(q, 4.018, epsilon=0.001));
     }
 
-    
+    #[test]
+    fn routing_store() {
+
+        let mut store = RoutingStore{
+            capacity: 70.0,
+            water_content: 49.0,
+            gw_exchange_coefficient: 2.5
+        };
+
+        let (qr, exchange) = store.step(1.7746);
+
+        assert!(abs_diff_eq!(qr, 3.202, epsilon=0.001));
+        assert!(abs_diff_eq!(exchange, 0.717, epsilon=0.001));
+
+    }    
 }
  
