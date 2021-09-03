@@ -1,12 +1,13 @@
 use crate::components::{ProductionStore, Routing};
+use crate::data::Parameters;
 
-struct GR4JModel {
+pub struct GR4JModel {
     production_store: ProductionStore,
     routing: Routing,
 }
 
 impl GR4JModel {
-    fn run(&mut self, rainfall: Vec<f64>, pet: Vec<f64>) -> Vec<f64> {
+    pub fn run(&mut self, rainfall: Vec<f64>, pet: Vec<f64>) -> Vec<f64> {
         let mut simulated = Vec::new();
 
         for (r, p) in rainfall.iter().zip(pet) {
@@ -22,24 +23,19 @@ impl GR4JModel {
         q
     }
 
-    fn new(
-        production_store_capacity: f64,
-        exchange_coefficient: f64,
-        routing_store_capacity: f64,
-        days: f64,
-        production_store_content: f64,
-        routing_store_content: f64,
+    pub fn new(
+        parameters: Parameters,
     ) -> GR4JModel {
         let production_store = ProductionStore::new(
-            production_store_capacity,
-production_store_content
+            parameters.production_store_capacity,
+            parameters.production_store_content
         );
 
         let routing = Routing::new(
-            days,
-            exchange_coefficient,
-            routing_store_capacity,
-            routing_store_content,
+            parameters.days,
+            parameters.exchange_coefficient,
+            parameters.routing_store_capacity,
+            parameters.routing_store_content,
         );
 
         GR4JModel {
@@ -55,7 +51,10 @@ mod tests {
 
     #[test]
     fn test_gr4j() {
-        let mut model = GR4JModel::new(300.0, 2.5, 70.0, 1.5, 180.0, 49.0);
+        
+        let parameters = Parameters::new(300.0, 2.5, 70.0, 1.5, 180.0, 49.0);
+        
+        let mut model = GR4JModel::new(parameters);
 
         let rainfall = vec![14.1, 3.7, 7.1, 9.3, 7.1];
         let pet = vec![0.46, 0.46, 0.47, 0.47, 0.48];
