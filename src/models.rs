@@ -23,12 +23,10 @@ impl GR4JModel {
         q
     }
 
-    pub fn new(
-        parameters: Parameters,
-    ) -> GR4JModel {
+    pub fn new(parameters: Parameters) -> GR4JModel {
         let production_store = ProductionStore::new(
             parameters.production_store_capacity,
-            parameters.production_store_content
+            parameters.production_store_content,
         );
 
         let routing = Routing::new(
@@ -51,9 +49,8 @@ mod tests {
 
     #[test]
     fn test_gr4j() {
-        
         let parameters = Parameters::new(300.0, 2.5, 70.0, 1.5, 180.0, 49.0);
-        
+
         let mut model = GR4JModel::new(parameters);
 
         let rainfall = vec![14.1, 3.7, 7.1, 9.3, 7.1];

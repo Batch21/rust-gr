@@ -44,14 +44,10 @@ impl ProductionStore {
         perc
     }
 
-    pub fn new(
-        capacity: f64,
-        water_content: f64
-    ) -> ProductionStore {
-
+    pub fn new(capacity: f64, water_content: f64) -> ProductionStore {
         ProductionStore {
             capacity: capacity,
-            water_content: water_content
+            water_content: water_content,
         }
     }
 }
@@ -230,5 +226,4 @@ mod tests {
         assert!(abs_diff_eq!(qr, 3.202, epsilon = 0.001));
         assert!(abs_diff_eq!(exchange, 0.717, epsilon = 0.001));
     }
-
 }
